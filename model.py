@@ -100,11 +100,15 @@ class GaussianActorCritic(nn.Module):
 
         self.apply(weights_init)
 
+        self.train()
+
     def forward(self, x, old=False):
-        x = F.tanh(self.fc1(x))
+        x = self.fc1(x)
         x = self.ab_fc1(x)
-        x = F.tanh(self.fc2(x))
+        x = F.tanh(x)
+        x = self.fc2(x)
         x = self.ab_fc2(x)
+        x = F.tanh(x)
 
         action_mean = self.action_mean(x)
         action_mean = self.ab_action_mean(action_mean)
