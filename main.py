@@ -61,8 +61,6 @@ parser.add_argument('--batch-size', type=int, default=64,
                     help='ppo batch size (default: 64)')
 parser.add_argument('--clip-param', type=float, default=0.2,
                     help='ppo clip parameter (default: 0.2)')
-parser.add_argument('--num-stack', type=int, default=4,
-                    help='number of frames to stack (default: 4)')
 parser.add_argument('--log-interval', type=int, default=10,
                     help='log interval, one log per n updates (default: 10)')
 parser.add_argument('--vis-interval', type=int, default=100,
@@ -118,7 +116,7 @@ def main():
         for i in range(args.num_processes)
     ])
 
-    actor_critic = GaussianActorCritic(envs.observation_space.shape[0] * args.num_stack, envs.action_space.shape[0])
+    actor_critic = GaussianActorCritic(envs.observation_space.shape[0], envs.action_space.shape[0])
     if args.algo == 'ppo':
         actor_critic = nn.DataParallel(actor_critic)
 
@@ -133,7 +131,7 @@ def main():
         optimizer = KFACOptimizer(actor_critic)
 
     obs_shape = envs.observation_space.shape
-    obs_shape = (obs_shape[0] * args.num_stack, obs_shape[1], obs_shape[2])
+    # obs_shape = (obs_shape[0], obs_shape[1], obs_shape[2])
 
     states = torch.zeros(args.num_steps + 1, args.num_processes, *obs_shape)
     current_state = torch.zeros(args.num_processes, *obs_shape)
