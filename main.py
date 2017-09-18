@@ -15,7 +15,18 @@ from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from envs import make_env_simple
 from kfac import KFACOptimizer
 from model import ActorCritic
+from model import GaussianActorCritic
 from vizualize_atari import visdom_plot
+
+
+PI = torch.DoubleTensor([3.1415926])
+
+
+def normal_log_density(x, mean, log_std, std):
+    var = std.pow(2)
+    log_density = -(x - mean).pow(2) / (2 * var) - 0.5 * torch.log(2 * Variable(PI)) - log_std
+    return log_density.sum(1)
+
 
 parser = argparse.ArgumentParser(description='RL')
 parser.add_argument('--algo', default='a2c',
@@ -107,7 +118,7 @@ def main():
         for i in range(args.num_processes)
     ])
 
-    actor_critic = ActorCritic(envs.observation_space.shape[0] * args.num_stack, envs.action_space)
+    actor_critic = GaussianActorCritic(envs.observation_space.shape[0] * args.num_stack, envs.action_space[0])
     if args.algo == 'ppo':
         actor_critic = nn.DataParallel(actor_critic)
 
@@ -138,7 +149,7 @@ def main():
 
     rewards = torch.zeros(args.num_steps, args.num_processes, 1)
     value_preds = torch.zeros(args.num_steps + 1, args.num_processes, 1)
-    old_log_probs = torch.zeros(args.num_steps, args.num_processes, envs.action_space.n)
+    old_log_probs = torch.zeros(args.num_steps, args.num_processes, envs.action_space.shape[0])
     returns = torch.zeros(args.num_steps + 1, args.num_processes, 1)
 
     actions = torch.LongTensor(args.num_steps, args.num_processes)
@@ -159,12 +170,16 @@ def main():
         masks = masks.cuda()
 
     for j in range(num_updates):
+        prev_return = 0
+        cur_return = 0
         for step in range(args.num_steps):
             # Sample actions
-            value, logits = actor_critic(Variable(states[step], volatile=True))
-            probs = F.softmax(logits)
-            log_probs = F.log_softmax(logits).data
-            actions[step] = probs.multinomial().data
+            # value, logits = actor_critic(Variable(states[step], volatile=True))
+            # probs = F.softmax(logits)
+            # log_probs = F.log_softmax(logits).data
+            # actions[step] = probs.multinomial().data
+            action_mean, action_log_std, action_std, value = actor_critic(Variable(states[step], volatile=True))
+            actions[step] = torch.normal(action_mean, action_std).data
 
             cpu_actions = actions[step].cpu()
             cpu_actions = cpu_actions.numpy()
@@ -174,6 +189,12 @@ def main():
 
             reward = torch.from_numpy(np.expand_dims(np.stack(reward), 1)).float()
             episode_rewards += reward
+
+            mask = 1
+            if done:
+                mask = 0
+            prev_return, cur_return = cur_return, reward + args.gamma * prev_return * mask
+            log_probs = normal_log_density(Variable(cur_return), action_mean, action_log_std, action_std)
 
             np_masks = np.array([0.0 if done_ else 1.0 for done_ in done])
 
@@ -210,17 +231,24 @@ def main():
 
         if args.algo in ['a2c', 'acktr']:
             # Reshape to do in a single forward pass for all steps
-            values, logits = actor_critic(Variable(states[:-1].view(-1, *states.size()[-3:])))
-            log_probs = F.log_softmax(logits)
+            # values, logits = actor_critic(Variable(states[:-1].view(-1, *states.size()[-3:])))
+            # log_probs = F.log_softmax(logits)
+            action_means, action_log_stds, action_stds, values = actor_critic(Variable(states[:-1].view(-1, *states.size()[-3:])))
+            prev_return = 0
+            returns = torch.Tensor(args.num_steps, 1)
+            for i_step in range(args.num_steps):
+                returns[i] = rewards[i] + args.gamma * prev_return * masks[i]
+            log_probs = normal_log_density(Variable(returns), action_means, action_log_stds, action_stds)
 
             # Unreshape
-            logits_size = (args.num_steps, args.num_processes, logits.size(-1))
+            logits_size = (args.num_steps, args.num_processes, log_probs.size(-1))
 
-            log_probs = F.log_softmax(logits).view(logits_size)
-            probs = F.softmax(logits).view(logits_size)
+            # log_probs = F.log_softmax(logits).view(logits_size)
+            # probs = F.softmax(logits).view(logits_size)
+            probs = torch.exp(log_probs).view(logits_size)
 
             values = values.view(args.num_steps, args.num_processes, 1)
-            logits = logits.view(logits_size)
+            # logits = logits.view(logits_size)
 
             action_log_probs = log_probs.gather(2, Variable(actions.unsqueeze(2)))
 
