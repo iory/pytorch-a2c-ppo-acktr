@@ -7,6 +7,18 @@ from baselines import bench
 from baselines.common.atari_wrappers import *
 
 
+def make_env_simple(env_id, seed, rank, log_dir):
+    def _thunk():
+        env = gym.make(env_id)
+        env.seed(seed + rank)
+        env = bench.Monitor(env,
+                            os.path.join(log_dir,
+                                         "{}.monitor.json".format(rank)))
+        return env
+
+    return _thunk
+
+
 def make_env(env_id, seed, rank, log_dir):
     def _thunk():
         env = gym.make(env_id)

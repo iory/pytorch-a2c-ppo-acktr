@@ -12,7 +12,7 @@ from torch.autograd import Variable
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
-from envs import make_env
+from envs import make_env_simple
 from kfac import KFACOptimizer
 from model import ActorCritic
 from vizualize_atari import visdom_plot
@@ -103,7 +103,7 @@ def main():
         win = None
 
     envs = SubprocVecEnv([
-        make_env(args.env_name, args.seed, i, args.log_dir)
+        make_env_simple(args.env_name, args.seed, i, args.log_dir)
         for i in range(args.num_processes)
     ])
 
