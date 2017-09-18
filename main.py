@@ -118,7 +118,7 @@ def main():
         for i in range(args.num_processes)
     ])
 
-    actor_critic = GaussianActorCritic(envs.observation_space.shape[0] * args.num_stack, envs.action_space[0])
+    actor_critic = GaussianActorCritic(envs.observation_space.shape[0] * args.num_stack, envs.action_space.shape[0])
     if args.algo == 'ppo':
         actor_critic = nn.DataParallel(actor_critic)
 

@@ -82,7 +82,7 @@ class ActorCritic(torch.nn.Module):
 class GaussianActorCritic(nn.Module):
 
     def __init__(self, num_inputs, num_outputs, hidden=64):
-        super(ActorCritic, self).__init__()
+        super(GaussianActorCritic, self).__init__()
         self.affine1 = nn.Linear(num_inputs, hidden)
         self.affine2 = nn.Linear(hidden, hidden)
 
