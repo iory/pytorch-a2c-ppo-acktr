@@ -92,10 +92,13 @@ class GaussianActorCritic(nn.Module):
         self.ab_action_mean = AddBias(num_outputs)
         self.action_mean.weight.data.mul_(0.1)
         self.action_mean.bias.data.mul_(0.0)
-        self.action_log_std = nn.Parameter(torch.zeros(1, num_outputs))
+        self.action_log_std = nn.Linear(hidden, num_outputs)
+        self.ab_action_log_std = AddBias(num_outputs)
 
         self.value_head = nn.Linear(hidden, 1)
         self.ab_value = AddBias(1)
+
+        self.apply(weights_init)
 
     def forward(self, x, old=False):
         x = F.tanh(self.fc1(x))
@@ -106,7 +109,8 @@ class GaussianActorCritic(nn.Module):
         action_mean = self.action_mean(x)
         action_mean = self.ab_action_mean(action_mean)
 
-        action_log_std = self.action_log_std.expand_as(action_mean)
+        action_log_std = self.action_log_std(x)
+        action_log_std = self.ab_action_log_std(action_log_std)
         action_std = torch.exp(action_log_std)
 
         value = self.value_head(x)
