@@ -83,19 +83,19 @@ class GaussianActorCritic(nn.Module):
 
     def __init__(self, num_inputs, num_outputs, hidden=64):
         super(GaussianActorCritic, self).__init__()
-        self.fc1 = nn.Linear(num_inputs, hidden)
+        self.fc1 = nn.Linear(num_inputs, hidden, bias=False)
         self.ab_fc1 = AddBias(hidden)
-        self.fc2 = nn.Linear(hidden, hidden)
+        self.fc2 = nn.Linear(hidden, hidden, bias=False)
         self.ab_fc2 = AddBias(hidden)
 
-        self.action_mean = nn.Linear(hidden, num_outputs)
+        self.action_mean = nn.Linear(hidden, num_outputs, bias=False)
         self.ab_action_mean = AddBias(num_outputs)
-        self.action_mean.weight.data.mul_(0.1)
-        self.action_mean.bias.data.mul_(0.0)
-        self.action_log_std = nn.Linear(hidden, num_outputs)
+        # self.action_mean.weight.data.mul_(0.1)
+        # self.action_mean.bias.data.mul_(0.0)
+        self.action_log_std = nn.Linear(hidden, num_outputs, bias=False)
         self.ab_action_log_std = AddBias(num_outputs)
 
-        self.value_head = nn.Linear(hidden, 1)
+        self.value_head = nn.Linear(hidden, 1, bias=False)
         self.ab_value = AddBias(1)
 
         self.apply(weights_init)
